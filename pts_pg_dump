@@ -1,0 +1,211 @@
+#!/bin/bash
+
+
+function help {
+  echo "Usage: pts_pg_dump COMMAND [options]"
+  echo "Commands:"
+  echo "  clean                 Remove old backups"
+  echo "  dump                  Create dump of one database"
+  echo "  dumpall               Create dump of all databases"
+  echo "Options:"
+  echo "  -C, --clean-days      Remove backup file older then specified days"
+  echo "  -c, --compression     Backup compression level (0..9)"
+  echo "  -D, --dir             Directory for store backups"
+  echo "  -d, --dbname          Database name"
+  echo "  -e, --dump-every-db   Create separate backups for all databases (in dump command)"
+  echo "  -H, --host            Database address. Override PGHOST variable"
+  echo "  -h, --help            This help screen"
+  echo "  -m, --mode            Backup write mode (write/copy)"
+  echo "  -n, --name            Backup title"
+  echo "      --no-compression  Dont compress dump file"
+  echo "  -p, --port            Database port. Override PGPORT variable"
+  echo "  -U, --username        Database username. Override PGUSER variable"
+  echo "      --verbose         Print verbose output"
+  echo "  -v, --version         Print version and exit"
+  echo "  -W, --password        Database password. Override PGPASSWORD variable"
+  echo "  -w, --no-password     Connect without password"
+}
+
+
+function clean {
+  message "Cleaning up old backups"
+  find $BACKUP_DIR -name "${BACKUP_NAME}_${PGDATABASE}_*.sql*" -type f -ctime +${CLEAN_DAYS} -delete
+}
+
+
+function message {
+  if $VERBOSE; then echo $1; fi
+}
+
+
+# Init
+
+set -e
+
+rm /tmp/dump.sql /tmp/dump.sql.gz 2> /dev/null || true
+
+VERBOSE="false"
+BACKUP_COMPRESSION="true"
+BACKUP_COMPRESSION_LVL="6"
+BACKUP_MODE="write"
+BACKUP_EVERY_DB="false"
+TOOL_VERSION='0.0.0'
+
+# Start here
+
+case $1 in
+-h | --help)
+help
+exit 0;;
+-v | --version)
+echo $TOOL_VERSION
+exit 0;;
+dump)
+ACTION="dump";;
+dumpall)
+ACTION="dumpall";;
+clean)
+ACTION="clean";;
+*)
+echo "Unknown command"
+exit 1;;
+esac
+shift
+
+
+while test $# -gt 0 
+do
+  case $1 in
+  -h | --help)
+    help
+    exit 0;;
+  -v | --version)
+    echo $TOOL_VERSION
+    exit 0;;
+  -H | --host)
+    shift
+    export PGHOST=$1;;
+  -p | --port)
+    shift
+    export PGPORT=$1;;
+  -U | --username)
+    shift
+    export PGUSER=$1;;
+  -w | --no-password)
+    NOPASS="-w";;
+  -W | --password)
+    shift
+    export PGPASSWORD=$1;;
+  -d | --dbname)
+    shift
+    export PGDATABASE=$1;;
+  -D | --dir)
+    shift
+    BACKUP_DIR=$1;;
+  --no-compression)
+    BACKUP_COMPRESSION="false";;
+  -c | --compression)
+    shift
+    BACKUP_COMPRESSION_LVL=$1;;
+  -m | --mode)
+    shift
+    BACKUP_MODE=$1;;
+  -n | --name)
+    shift
+    BACKUP_NAME=$1;;
+  -C | --clean-days)
+    shift
+    CLEAN_DAYS=$1;;
+  -e | --dump-every-db)
+    BACKUP_EVERY_DB="true";;
+  --verbose)
+    VERBOSE="true";;
+  *) 
+    echo "Unknown param: $1"
+    exit 1;;
+  esac
+  shift
+done
+
+
+if [ -z $BACKUP_NAME ]; then echo "Backup name not set"; exit 1; fi
+if [ -z $BACKUP_DIR ]; then echo "Backup directory not set"; exit 1; fi
+
+if [ ! $BACKUP_MODE = "copy" ] && [ ! $BACKUP_MODE = "write" ]; then
+  echo "Unknown backup mode"
+  exit 1
+fi
+
+if [ ! $ACTION = "dump" ]; then
+  OUT_FILE="${BACKUP_DIR}/${BACKUP_NAME}_full_$(date +%Y-%m-%d_%H-%M).sql"
+else 
+  if [ -z $PGDATABASE ] && ! $BACKUP_EVERY_DB; then echo "Database name not set"; exit 1; fi
+  OUT_FILE="${BACKUP_DIR}/${BACKUP_NAME}_${PGDATABASE}_$(date +%Y-%m-%d_%H-%M).sql"
+fi
+
+if [ -z $PGHOST ]; then export PGHOST="127.0.0.1"; fi
+if [ -z $PGPORT ]; then export PGPORT="5432"; fi
+if [ -z $PGUSER ]; then export PGUSER="postgres"; fi
+if [ -z $NOPASS ] && [ ! $ACTION = "clean" ] && [ -z $PGPASSWORD ]; then echo "Database password not set"; exit 1; fi
+
+
+# dumpall
+if [ $ACTION = "dumpall" ]; then
+  if $BACKUP_COMPRESSION; then 
+    if [ $BACKUP_MODE = "copy" ]; then
+      pg_dumpall --lock-wait-timeout=600 $NOPASS -c | gzip -${BACKUP_COMPRESSION_LVL} -c > /tmp/dump.sql.gz
+      cp /tmp/dump.sql.gz "$OUT_FILE.gz"
+    else
+      pg_dumpall --lock-wait-timeout=600 $NOPASS -c | gzip -${BACKUP_COMPRESSION_LVL} -c > "$OUT_FILE.gz"
+    fi
+  else
+    if [ $BACKUP_MODE = "copy" ]; then
+      pg_dumpall --lock-wait-timeout=600 $NOPASS -c > /tmp/dump.sql
+      cp /tmp/dump.sql.gz $OUT_FILE
+    else
+      pg_dumpall --lock-wait-timeout=600 $NOPASS -c > $OUT_FILE
+    fi
+  fi
+  if [ ! -z $CLEAN_DAYS ]; then clean; fi
+  exit 0
+fi
+
+
+# dump
+if [ $ACTION = "dump" ]; then
+  if $BACKUP_COMPRESSION; then 
+    COMPRESS="--compress=gzip:$BACKUP_COMPRESSION_LVL"
+    OUT_FILE="$OUT_FILE.gz"
+  fi
+  if $BACKUP_EVERY_DB; then
+    for i in $(psql $NOPASS -t -c "SELECT datname FROM pg_database;" | awk '{print $1}' | grep -v '^$' | grep -v '^template'); do
+      message "Creating $i database backup"
+      OUT_FILE="${BACKUP_DIR}/${BACKUP_NAME}_${i}_$(date +%Y-%m-%d_%H-%M).sql"
+      if [ $BACKUP_MODE = "copy" ]; then
+        pg_dump $NOPASS --lock-wait-timeout=600 -d $i -f /tmp/dump.sql $NOPASS $COMPRESS
+        cp /tmp/dump.sql $OUT_FILE
+      else
+        pg_dump $NOPASS --lock-wait-timeout=600 -d $i -f $OUT_FILE $NOPASS $COMPRESS
+      fi
+    done
+  else
+    message "Creating $PGDATABASE database backup"
+    if [ $BACKUP_MODE = "copy" ]; then
+      pg_dump $NOPASS --lock-wait-timeout=600 -f /tmp/dump.sql $NOPASS $COMPRESS
+      cp /tmp/dump.sql $OUT_FILE
+    else
+      pg_dump $NOPASS --lock-wait-timeout=600 -f $OUT_FILE $NOPASS $COMPRESS
+    fi
+  fi
+  if [ ! -z $CLEAN_DAYS ]; then clean; fi
+  exit 0
+fi
+
+
+# clean
+if [ $ACTION = "clean" ]; then
+  if [ -z $CLEAN_DAYS ]; then echo "Cleanup period not set"; exit 1; fi
+  clean
+  exit 0
+fi
+

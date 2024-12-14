@@ -1,0 +1,129 @@
+#!/bin/bash
+
+
+function help {
+  echo "Usage: pts_pg_top [options]"
+  echo "Options:"
+  echo "  -a, --all             Get all statistic"
+  echo "  -c, --connections     Get database connections"
+  echo "  -d, --dbname          Get statistic about specified database"
+  echo "  -H, --host            Database address. Override PGHOST variable"
+  echo "  -h, --help            This help screen"
+  echo "  -p, --port            Database port. Override PGPORT variable"
+  echo "  -S, --size            Get database size"
+  echo "  -s, --status          Get database status and overall info"
+  echo "  -U, --username        Database username. Override PGUSER variable"
+  echo "      --verbose         Print verbose output"
+  echo "  -v, --version         Print version and exit"
+  echo "  -W, --password        Database password. Override PGPASSWORD variable"
+  echo "  -w, --no-password     Connect without password"
+}
+
+
+function clean {
+  message "Cleaning up old backups"
+  find $BACKUP_DIR -name "${BACKUP_NAME}_${PGDATABASE}_*.sql*" -type f -ctime +${CLEAN_DAYS} -delete
+}
+
+
+function message {
+  if $VERBOSE; then echo $1; fi
+}
+
+
+function get_status {
+  UPTIME=$(psql $NOPASS -t -c "select current_timestamp - pg_postmaster_start_time() as uptime" | xargs | grep -v '^$')
+  VERSION=$(psql $NOPASS -t -c "select version()" | awk '{print $1}' | grep -v '^$')
+  echo "Postgresql server is UP"
+  echo "Uptime: $UPTIME"
+  echo "Server version: $VERSION"
+}
+
+
+function get_statistic {
+  if $STATISTIC_ALL || $STATISTIC_SIZE ; then 
+    SIZE=$(psql $NOPASS -t -c "SELECT pg_size_pretty(pg_database_size('$1'))" | awk '{print $1}' | grep -v '^$')
+    echo "$1 database size: $SIZE"
+  fi
+  if $STATISTIC_ALL || $STATISTIC_CONNECTIONS ; then 
+    CONNECTIONS=$(psql $NOPASS -t -c "SELECT count(*) FROM pg_stat_activity WHERE datname = '$1'" | awk '{print $1}' | grep -v '^$')
+    echo "$1 database connections: $CONNECTIONS"
+  fi
+}
+
+
+# Init
+
+set -e
+
+STATISTIC_ALL="false"
+GET_STATUS="false"
+STATISTIC_SIZE="false"
+STATISTIC_CONNECTIONS="false"
+TOOL_VERSION='0.0.0'
+
+# Start here
+
+while test $# -gt 0 
+do
+  case $1 in
+  -h | --help)
+    help
+    exit 0;;
+  -v | --version)
+    echo $TOOL_VERSION
+    exit 0;;
+  -H | --host)
+    shift
+    export PGHOST=$1;;
+  -p | --port)
+    shift
+    export PGPORT=$1;;
+  -U | --username)
+    shift
+    export PGUSER=$1;;
+  -w | --no-password)
+    NOPASS="-w";;
+  -W | --password)
+    shift
+    export PGPASSWORD=$1;;
+  -d | --dbname)
+    shift
+    export PGDATABASE=$1;;
+  --verbose)
+    VERBOSE="true";;
+  -a | --all)
+    STATISTIC_ALL="true";;
+  -s | --status | status)
+    GET_STATUS="true";;
+  -S | --size)
+    STATISTIC_SIZE="true";;
+  -c | --connections)
+    STATISTIC_CONNECTIONS="true";;
+  *) 
+    echo "Unknown param: $1"
+    exit 1;;
+  esac
+  shift
+done
+
+
+if [ -z $PGHOST ]; then export PGHOST="127.0.0.1"; fi
+if [ -z $PGPORT ]; then export PGPORT="5432"; fi
+if [ -z $PGUSER ]; then export PGUSER="postgres"; fi
+if [ -z $NOPASS ] && [ -z $PGPASSWORD ]; then echo "Database password not set"; exit 1; fi
+
+
+if $GET_STATUS; then
+  get_status
+  exit 0
+fi
+
+if [ -z $PGDATABASE ]; then
+  for i in $(psql $NOPASS -t -c "SELECT datname FROM pg_database;" | awk '{print $1}' | grep -v '^$'); do
+    get_statistic $i
+  done
+else
+  get_statistic $PGDATABASE
+fi
+

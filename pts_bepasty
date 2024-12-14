@@ -1,0 +1,79 @@
+#!/bin/bash
+
+
+function help {
+  echo "Usage: pts_bepasty [options] file1.txt file2.json ..."
+  echo "Usage: echo 'some important text' | pts_bepasty [options]"
+  echo "Options:"
+  echo "  -h, --help      This help screen"
+  echo "  -n, --name      Title of the paste"
+  echo "  -t, --type      Format of paste. Default is text/plain"
+  echo "  -u, --url       URL of target service. E.g. http://8.8.8.8:1234/bepasy"
+  echo "      --verbose   Print verbose output"
+  echo "  -v, --version   Print version and exit"
+}
+
+
+set -e
+declare -a FILES=()
+VERBOSE="false"
+TOOL_VERSION='0.0.0'
+
+while test $# -gt 0 
+do
+  case $1 in
+  -h | --help)
+    help
+    exit 0;;
+  -v | --version)
+    echo $TOOL_VERSION
+    exit 0;;
+  -t | --type)
+    shift
+    TYPE=$1;;
+  -n | --name)
+    shift
+    FILENAME=$1;;
+  -u | --url)
+    shift
+    URL=$1;;
+  --verbose)
+    VERBOSE="true";;
+  *) 
+    FILES+=($1);;
+  esac
+  shift
+done
+
+if [ -z $URL ]; then echo "No bepasty URL specified"; exit 1; fi
+if $VERBOSE; then echo "Using service $URL"; fi
+
+if [ ${#FILES[@]} -gt 0 ]
+then
+  if $VERBOSE; then echo "Uploading files: $FILES"; fi
+  for FILE in ${FILES[@]}
+  do
+    PARAMS="file=@$FILE"
+    if [ -z $TYPE ]; then PARAMS="$PARAMS"; else PARAMS="$PARAMS;type=$TYPE"; fi
+    if [ -z $FILENAME ]; then PARAMS="$PARAMS"; else PARAMS="$PARAMS;filename=$FILENAME"; fi 
+    LOCATION=$(curl -s -S -k -f -F "$PARAMS" -X POST -D - $URL/+upload -o /dev/null | grep "Location:" | awk '{print $2}')
+    echo "${URL}${LOCATION}"
+  done
+  exit 0
+fi
+
+if [ -p /dev/stdin ]
+then
+  if $VERBOSE; then echo "Uploading data from stdin"; fi
+  PARAMS="file=@-"
+  if [ -z $TYPE ]; then PARAMS="$PARAMS;type=text/plain"; else PARAMS="$PARAMS;type=$TYPE"; fi
+  if [ -z $FILENAME ]; then PARAMS="$PARAMS;filename=$(date +upload_%d.%m.%y_%H:%M)"; else PARAMS="$PARAMS;filename=$FILENAME"; fi 
+  LOCATION=$(curl -s -S -k -f -F "$PARAMS" -X POST -D - $URL/+upload -o /dev/null | grep "Location:" | awk '{print $2}')
+  echo "${URL}${LOCATION}"
+  exit 0
+fi
+
+echo "No input data"
+help
+exit 1
+
