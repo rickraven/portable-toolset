@@ -1,0 +1,37 @@
+#!/usr/bin/python3
+
+import yaml
+import json
+import argparse
+
+def convert_yaml_to_json(yaml_file_path, json_file_path=None):
+    try:
+        with open(yaml_file_path, 'r') as yaml_file:
+            yaml_data = yaml.safe_load(yaml_file)
+    except FileNotFoundError:
+        print(f"Error: YAML file not found at path: {yaml_file_path}")
+        return
+    except yaml.YAMLError as e:
+        print(f"Error reading YAML file: {e}")
+        return
+
+    try:
+      if json_file_path:
+          with open(json_file_path, 'w') as json_file:
+                json.dump(yaml_data, json_file, indent=2)
+          print(f"File successfully converted and saved to: {json_file_path}")
+      else:
+          print(json.dumps(yaml_data, indent=2))
+    except Exception as e:
+      print(f"Error writing to JSON: {e}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Converts a YAML file to JSON.")
+    parser.add_argument("yaml_file", help="Path to the YAML file")
+    parser.add_argument("-o", "--output", help="Path to the JSON file for saving (optional)")
+
+    args = parser.parse_args()
+
+    convert_yaml_to_json(args.yaml_file, args.output)
+
+

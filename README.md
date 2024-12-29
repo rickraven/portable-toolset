@@ -85,5 +85,20 @@ Options:
   -w, --no-password     Connect without password
 ```
 
+## pts_yaml2json
+
+Simple script for converting yaml configs to json format.
+
+```
+usage: yaml2json.py [-h] [-o OUTPUT] yaml_file
+positional arguments:
+  yaml_file             Path to the YAML file
+
+options:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        Path to the JSON file for saving (optional)
+```
+
 
 
