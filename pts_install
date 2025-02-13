@@ -1,2 +1,111 @@
 #!/bin/bash
 
+
+function help {
+  echo "Usage: pts_pg_dump COMMAND [options]"
+  echo "Commands:"
+  echo "  bashrc                Create bashrc preset"
+  echo "  docker                Install latest docker version"
+  echo "  tools                 Install some useful utils"
+  echo "Options:"
+  echo "  -h, --help            This help screen"
+  echo "  -s, --skip-backup     Dont create backup of previous .bashrc file"
+  echo "  -v, --version         Print version and exit"
+  echo "  -W, --welcome         Bash will print welcome message on start"
+  echo "  -w, --workdir         Specify default directory for bash. HOME by dafault"
+}
+
+
+# Init
+
+set -e
+
+TOOL_VERSION="0.0.0"
+
+# Start here
+
+case $1 in
+-h | --help)
+help
+exit 0;;
+-v | --version)
+echo $TOOL_VERSION
+exit 0;;
+tools)
+ACTION="tools";;
+bashrc)
+ACTION="bashrc";;
+docker)
+ACTION="docker";;
+*)
+echo "Unknown command"
+exit 1;;
+esac
+shift
+
+
+while test $# -gt 0 
+do
+  case $1 in
+  -h | --help)
+    help
+    exit 0;;
+  -v | --version)
+    echo $TOOL_VERSION
+    exit 0;;
+  -s | --skip-backup)
+    SKIP_BACKUP="true"
+    shift;;
+  -w | --workdir)
+    shift
+    WORKDIR=$1
+    shift;;
+  -W | --welcome-message)
+    WELCOME="true"
+    shift;;
+  *) 
+    echo "Unknown param: $1"
+    exit 1;;
+  esac
+  shift
+done
+
+
+if [ -f /usr/lib/os-release ]; then
+  OS_ID=$(grep "^ID=" /usr/lib/os-release | awk -F= '{print $2}')
+  OS_VERSION=$(grep "^VERSION_ID=" /usr/lib/os-release | awk -F= '{print $2}')
+  OS_ARCH=$(uname -m)
+fi
+
+
+# tools
+if [ $ACTION = "tools" ]; then
+  if [ $OS_ID == "debian" ] || [ $OS_ID == "ubuntu" ]; then
+    apt update
+    apt install -V -y curl wget nano tcpdump mtr nmap screen dns-utils
+  else
+    echo "Installation supports only on debian-like distrs"
+    exit 1
+  fi
+fi
+
+
+# bashrc
+if [ $ACTION = "bashrc" ]; then
+  if ! $SKIP_BACKUP && [ -f ~/.bashrc ]; then
+    cp ~/.bashrc ~/.bashrc.backup
+  fi
+  cp $( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/.bashrc ~/.bashrc
+  if [ ! -z $WORKDIR ]; then
+    sed -i '' "s#PTS_WORKDIR=\"~\"#PTS_WORKDIR=\"$WORKDIR\"#" ~/.bashrc
+  fi
+  if [ ! -z $WELCOME ]; then
+    sed -i '' "s#PTS_WELCOME=\"false\"#PTS_WELCOME=\"true\"#" ~/.bashrc
+  fi
+fi
+
+
+# bashrc
+if [ $ACTION = "docker" ]; then
+fi
+

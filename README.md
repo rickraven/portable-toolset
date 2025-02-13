@@ -28,6 +28,21 @@ Options:
 
 ## pts_install
 
+Quick create working environment. Install usful tools, latest version of docker and awaresome bash profile.
+
+```
+Usage: pts_pg_dump COMMAND [options]
+Commands:
+  bashrc                Create bashrc preset
+  docker                Install latest docker version
+  tools                 Install some useful utils
+Options:
+  -h, --help            This help screen
+  -s, --skip-backup     Dont create backup of previous .bashrc file
+  -v, --version         Print version and exit
+  -W, --welcome         Bash will print welcome message on start
+  -w, --workdir         Specify default directory for bash. HOME by dafault
+```
 
 ## pts_pg_dump
 
@@ -90,7 +105,7 @@ Options:
 Simple script for converting yaml configs to json format.
 
 ```
-usage: yaml2json.py [-h] [-o OUTPUT] yaml_file
+usage: yaml2json [-h] [-o OUTPUT] yaml_file
 positional arguments:
   yaml_file             Path to the YAML file
 
