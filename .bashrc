@@ -92,7 +92,7 @@ __prompt_command() {
     PS1+='\[\e[1;31;44m\] $(echo -n -e "\xe2\x9d\x8c"; printf " %-3s " $PTS_EXIT_CODE)'
   fi
 
-  PS1+='\[\e[1;37;44m\] $(echo -n -e "\xf0\x9f\x95\x91") [\d \t] \[\e[1;30;43m\] \u@\H \[\e[1;37;45m\] $(echo -e "\xf0\x9f\x93\x81") \w \[\e[1;32;46m\]$(if if type git &>/dev/null && git status &>/dev/null; then echo -n -e " \xf0\x9f\x94\x97 ("; echo -n "$(git branch --show-current)"; if [[ $(git status -s | wc -l) -ne 0 ]]; then echo -n " *"; fi; echo -n ") "; fi)\[\e[0;0;0m\]\n>> '
+  PS1+='\[\e[1;37;44m\] $(echo -n -e "\xf0\x9f\x95\x91") [\d \t] \[\e[1;30;43m\] \u@\H \[\e[1;37;45m\] $(echo -e "\xf0\x9f\x93\x81") \w \[\e[1;32;46m\]$(if type git &>/dev/null && git status &>/dev/null; then echo -n -e " \xf0\x9f\x94\x97 ("; echo -n "$(git branch --show-current)"; if [[ $(git status -s | wc -l) -ne 0 ]]; then echo -n " *"; fi; echo -n ") "; fi)\[\e[0;0;0m\]\n>> '
 }
 
 
