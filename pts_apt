@@ -1,0 +1,47 @@
+#!/bin/bash
+
+
+function help {
+  echo "Usage: pts_apt [apt command]"
+  echo "Options:"
+  echo "  -h, --help      This help screen"
+  echo "  -s, --silent    No output"
+  echo "  -v, --version   Print version and exit"  
+}
+
+
+# Init
+
+set -e
+
+TOOL_VERSION='0.0.0'
+SCREEN_OUTPUT='true'
+
+
+# Start here
+
+case $1 in
+-h | --help)
+help
+echo "\nApt help:\n"
+apt --help
+exit 0;;
+-v | --version)
+echo $TOOL_VERSION
+apt --version
+exit 0;;
+-s | --silent)
+SCREEN_OUTPUT='false'
+shift;;
+esac
+
+APT_COMMAND=$(echo "$@")
+
+if $SCREEN_OUTPUT; then
+  TTY=$(tty)
+  screen -dmS apt bash -c "echo '' > $TTY; apt $APT_COMMAND &> $TTY"
+else
+  screen -dmS apt bash -c "apt $APT_COMMAND"
+fi
+
+

@@ -10,6 +10,18 @@ It is very simple: just clone this repo, copy scripts to the one of the director
 mv ./pts_* /usr/local/sbin && chmod +x /usr/local/sbin/pts_*
 ```
 
+## pts_apt
+
+When you upgrading your system or installing new packages over ssh it is possible to get broken or not fully configured software in case of session disconnect by any reason. This tool run apt package manager in deattached mode inside `screen`. So its processing will be not connected with your ssh sessin. 
+
+```
+Usage: pts_apt [apt command]
+Options:
+  -h, --help      This help screen
+  -s, --silent    No output
+  -v, --version   Print version and exit
+```
+
 ## pts_bepasty
 
 This tool intended to upload text or files to [bepasty](https://github.com/bepasty/bepasty-server) API through CLI.

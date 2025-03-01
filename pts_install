@@ -82,7 +82,7 @@ fi
 if [ $ACTION = "tools" ]; then
   if [ $OS_ID == "debian" ] || [ $OS_ID == "ubuntu" ]; then
     apt update
-    apt install -V -y curl wget nano tcpdump mtr nmap screen dns-utils
+    apt install -V -y curl wget nano tcpdump mtr nmap screen dns-utils tree
   else
     echo "Installation supports only on debian-like distrs"
     exit 1
